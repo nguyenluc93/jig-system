@@ -1,11 +1,12 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from datetime import datetime
 import os
 
 # ======================
-# CONFIG
+# DATABASE
 # ======================
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 
@@ -16,8 +17,26 @@ Base = declarative_base()
 app = FastAPI()
 
 # ======================
+# CORS (IMPORTANT)
+# ======================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ======================
 # MODELS
 # ======================
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True)
+    password = Column(String)
+    role = Column(String)
 
 class JIG(Base):
     __tablename__ = "jigs"
@@ -26,14 +45,12 @@ class JIG(Base):
     name = Column(String)
     status = Column(String, default="AVAILABLE")
 
-
 class BorrowSession(Base):
     __tablename__ = "borrow_sessions"
     id = Column(Integer, primary_key=True)
     user_name = Column(String)
     status = Column(String, default="ACTIVE")
     created_at = Column(DateTime, default=datetime.utcnow)
-
 
 class SessionItem(Base):
     __tablename__ = "session_items"
@@ -43,28 +60,17 @@ class SessionItem(Base):
     is_returned = Column(Boolean, default=False)
     returned_at = Column(DateTime, nullable=True)
 
-
 class Comment(Base):
     __tablename__ = "comments"
     id = Column(Integer, primary_key=True)
     text = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    username = Column(String)
-    password = Column(String)
-    role = Column(String)
-
-
 Base.metadata.create_all(bind=engine)
 
 # ======================
-# DB
+# DB SESSION
 # ======================
-
 def get_db():
     db = SessionLocal()
     try:
@@ -73,30 +79,32 @@ def get_db():
         db.close()
 
 # ======================
-# BASIC
+# HEALTH CHECK
 # ======================
-
 @app.get("/")
 def home():
     return {"message": "JIG SYSTEM RUNNING"}
 
 # ======================
-# INIT DATA
+# INIT DATA (RUN ONCE)
 # ======================
-
 @app.post("/init")
 def init_data(db: Session = Depends(get_db)):
-    jigs = [
-        JIG(jig_code="T-1-1-1", name="JIG A"),
-        JIG(jig_code="T-2-2-2", name="JIG B"),
-        JIG(jig_code="T-3-3-3", name="JIG C"),
-    ]
-    db.add_all(jigs)
 
-    admin = User(username="admin", password="123", role="admin")
-    user = User(username="user", password="123", role="user")
+    admin = db.query(User).filter_by(username="admin").first()
+    if not admin:
+        admin = User(username="admin", password="123", role="admin")
+        user = User(username="user", password="123", role="user")
+        db.add_all([admin, user])
 
-    db.add_all([admin, user])
+    jig_exist = db.query(JIG).first()
+    if not jig_exist:
+        jigs = [
+            JIG(jig_code="T-1-1-1", name="PRESS JIG A"),
+            JIG(jig_code="T-2-2-1", name="CUT JIG B"),
+            JIG(jig_code="T-3-3-1", name="FIXTURE C"),
+        ]
+        db.add_all(jigs)
 
     db.commit()
     return {"message": "INIT DONE"}
@@ -104,7 +112,6 @@ def init_data(db: Session = Depends(get_db)):
 # ======================
 # LOGIN
 # ======================
-
 @app.post("/login")
 def login(data: dict, db: Session = Depends(get_db)):
     user = db.query(User).filter_by(
@@ -114,51 +121,69 @@ def login(data: dict, db: Session = Depends(get_db)):
 
     if user:
         return {"username": user.username, "role": user.role}
+
     return {}
+
+# ======================
+# CREATE USER (ADMIN UI)
+# ======================
+@app.post("/create_user")
+def create_user(data: dict, db: Session = Depends(get_db)):
+
+    exist = db.query(User).filter_by(username=data["username"]).first()
+    if exist:
+        return {"error": "User already exists"}
+
+    user = User(
+        username=data["username"],
+        password=data["password"],
+        role=data.get("role", "user")
+    )
+
+    db.add(user)
+    db.commit()
+
+    return {"message": "user created"}
 
 # ======================
 # JIG
 # ======================
-
 @app.get("/jigs")
 def get_jigs(db: Session = Depends(get_db)):
     return db.query(JIG).all()
 
-
 @app.post("/add_jig")
 def add_jig(data: dict, db: Session = Depends(get_db)):
-    jig = JIG(jig_code=data["code"], name=data["code"])
+    jig = JIG(
+        jig_code=data["jig_code"],
+        name=data["name"],
+        status="AVAILABLE"
+    )
     db.add(jig)
     db.commit()
-    return {"ok": True}
+    return {"message": "jig created"}
 
 # ======================
 # BORROW
 # ======================
-
 @app.post("/borrow")
 def borrow(data: dict, db: Session = Depends(get_db)):
-    user_name = data["user"]
-    jig_ids = data["jig_ids"]
 
-    session = BorrowSession(user_name=user_name)
+    session = BorrowSession(user_name=data["user"])
     db.add(session)
     db.commit()
     db.refresh(session)
 
-    for jig_id in jig_ids:
+    for jig_id in data["jig_ids"]:
         jig = db.get(JIG, jig_id)
+        if jig:
+            jig.status = "BORROWED"
 
-        if jig.status != "AVAILABLE":
-            return {"error": f"{jig.jig_code} not available"}
-
-        jig.status = "BORROWED"
-
-        item = SessionItem(
-            session_id=session.id,
-            jig_id=jig_id
-        )
-        db.add(item)
+            item = SessionItem(
+                session_id=session.id,
+                jig_id=jig_id
+            )
+            db.add(item)
 
     db.commit()
 
@@ -168,78 +193,75 @@ def borrow(data: dict, db: Session = Depends(get_db)):
     }
 
 # ======================
-# SESSION
+# SESSION INFO
 # ======================
-
 @app.get("/session/{session_id}")
 def get_session(session_id: int, db: Session = Depends(get_db)):
+
     items = db.query(SessionItem).filter_by(session_id=session_id).all()
 
     result = []
-    for item in items:
-        jig = db.get(JIG, item.jig_id)
+    for i in items:
+        jig = db.get(JIG, i.jig_id)
         result.append({
-            "item_id": item.id,
+            "item_id": i.id,
             "jig_code": jig.jig_code,
-            "returned": item.is_returned
+            "returned": i.is_returned
         })
 
     return result
 
 # ======================
-# RETURN
+# RETURN PARTIAL
 # ======================
-
 @app.post("/return")
 def return_partial(data: dict, db: Session = Depends(get_db)):
-    session_id = data["session_id"]
-    item_ids = data["item_ids"]
 
-    items = db.query(SessionItem).filter(SessionItem.id.in_(item_ids)).all()
+    items = db.query(SessionItem).filter(
+        SessionItem.id.in_(data["item_ids"])
+    ).all()
 
-    for item in items:
-        if not item.is_returned:
-            item.is_returned = True
-            item.returned_at = datetime.utcnow()
+    for i in items:
+        if not i.is_returned:
+            i.is_returned = True
+            i.returned_at = datetime.utcnow()
 
-            jig = db.get(JIG, item.jig_id)
-            jig.status = "AVAILABLE"
+            jig = db.get(JIG, i.jig_id)
+            if jig:
+                jig.status = "AVAILABLE"
 
     db.commit()
+    return {"message": "partial return done"}
 
-    return {"message": "Partial return done"}
-
-
+# ======================
+# RETURN ALL
+# ======================
 @app.post("/return_all/{session_id}")
 def return_all(session_id: int, db: Session = Depends(get_db)):
+
     items = db.query(SessionItem).filter_by(session_id=session_id).all()
 
-    for item in items:
-        if not item.is_returned:
-            item.is_returned = True
-            item.returned_at = datetime.utcnow()
+    for i in items:
+        if not i.is_returned:
+            i.is_returned = True
+            i.returned_at = datetime.utcnow()
 
-            jig = db.get(JIG, item.jig_id)
-            jig.status = "AVAILABLE"
-
-    session = db.get(BorrowSession, session_id)
-    session.status = "CLOSED"
+            jig = db.get(JIG, i.jig_id)
+            if jig:
+                jig.status = "AVAILABLE"
 
     db.commit()
-
-    return {"message": "All returned"}
+    return {"message": "all returned"}
 
 # ======================
 # COMMENT
 # ======================
-
 @app.post("/comment")
 def add_comment(data: dict, db: Session = Depends(get_db)):
     c = Comment(text=data["text"])
     db.add(c)
     db.commit()
-    return {"ok": True}
-
+    return {"message": "comment added"}
 
 @app.get("/comments")
 def get_comments(db: Session = Depends(get_db)):

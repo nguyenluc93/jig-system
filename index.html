@@ -1,87 +1,55 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>JIG System</title>
-
-<script src="https://unpkg.com/html5-qrcode"></script>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<meta charset="utf-8">
+<title>JIG SYSTEM</title>
 
 <style>
 body {
     margin: 0;
-    font-family: "Segoe UI", sans-serif;
+    font-family: Arial;
     display: flex;
-    background: #f4f6f9;
 }
 
 .sidebar {
     width: 220px;
-    background: #1f2d3d;
+    background: #1e293b;
     color: white;
     height: 100vh;
-    padding: 15px;
+    padding: 10px;
 }
 
-.sidebar h3 {
+.sidebar h2 {
     text-align: center;
 }
 
-.menu {
-    margin-top: 20px;
-}
-
-.menu div {
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 5px;
+.menu button {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+    background: #334155;
+    color: white;
+    border: none;
     cursor: pointer;
 }
 
-.menu div:hover {
-    background: #3c8dbc;
+.menu button:hover {
+    background: #475569;
 }
 
 .main {
     flex: 1;
     padding: 20px;
+    background: #f1f5f9;
 }
 
 .card {
     display: inline-block;
-    width: 180px;
-    padding: 20px;
+    background: white;
+    padding: 15px;
     margin: 10px;
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-    text-align: center;
-}
-
-.card i {
-    font-size: 25px;
-    margin-bottom: 10px;
-}
-
-.jig {
-    background: white;
-    padding: 10px;
-    margin: 8px 0;
     border-radius: 10px;
-    cursor: pointer;
-}
-
-.selected {
-    background: #d0ebff;
-}
-
-button {
-    padding: 10px 15px;
-    border: none;
-    border-radius: 8px;
-    background: #3c8dbc;
-    color: white;
-    cursor: pointer;
+    width: 150px;
 }
 </style>
 </head>
@@ -89,148 +57,151 @@ button {
 <body>
 
 <div class="sidebar">
-    <h3>JIGシステム</h3>
+    <h2>JIG</h2>
 
     <div class="menu">
-        <div onclick="show('home')"><i class="fa fa-home"></i> ホーム</div>
-        <div onclick="show('borrow')"><i class="fa fa-box"></i> 貸出</div>
-        <div onclick="show('return')"><i class="fa fa-undo"></i> 返却</div>
-        <div onclick="show('monitor')"><i class="fa fa-chart-line"></i> Monitor</div>
-        <div onclick="show('list')"><i class="fa fa-list"></i> JIG一覧</div>
-        <div onclick="show('comment')"><i class="fa fa-comment"></i> コメント</div>
-        <div onclick="show('admin')" id="adminMenu" style="display:none;">
-            <i class="fa fa-cog"></i> Admin
-        </div>
+        <button onclick="home()">Home</button>
+        <button onclick="borrow()">Borrow</button>
+        <button onclick="jigList()">JIG List</button>
+        <button onclick="comment()">Comment</button>
+        <button onclick="admin()">Admin</button>
     </div>
 </div>
 
-<div class="main" id="main"></div>
+<div class="main" id="main">
+    Loading...
+</div>
 
 <script>
 const API = "https://jig-system.onrender.com";
-let selected = [];
-let currentUser = null;
 
-function show(page){
-    if(!currentUser && page!=="login"){
-        return loadLogin();
-    }
-
-    if(page==="home") loadHome();
-    if(page==="borrow") loadBorrow();
-    if(page==="return") loadReturn();
-    if(page==="list") loadList();
-    if(page==="comment") loadComment();
-    if(page==="monitor") loadMonitor();
-    if(page==="admin") loadAdmin();
-}
-
-function loadLogin(){
-    document.getElementById("main").innerHTML = `
-        <h2>Login</h2>
-        <input id="user" placeholder="User"><br><br>
-        <input id="pass" placeholder="Password" type="password"><br><br>
-        <button onclick="login()">Login</button>
-    `;
-}
-
-async function login(){
-    let user = document.getElementById("user").value;
-    let pass = document.getElementById("pass").value;
-
-    let res = await fetch(API+"/login",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({user,pass})
-    });
-
-    let data = await res.json();
-
-    if(data.role){
-        currentUser = data;
-        if(data.role==="admin"){
-            document.getElementById("adminMenu").style.display="block";
-        }
-        show("home");
-    }else{
-        alert("Login fail");
-    }
-}
-
-async function loadHome(){
-    let jigs = await fetch(API+"/jigs").then(r=>r.json());
+/* ================= HOME ================= */
+async function home(){
+    let res = await fetch(API + "/jigs");
+    let jigs = await res.json();
 
     let total = jigs.length;
-    let borrowed = jigs.filter(j=>j.status==="BORROWED").length;
-    let available = jigs.filter(j=>j.status==="AVAILABLE").length;
+    let borrowed = jigs.filter(j => j.status === "BORROWED").length;
+    let available = total - borrowed;
 
     document.getElementById("main").innerHTML = `
-        <h2>Dashboard</h2>
-        <div class="card"><i class="fa fa-cubes"></i><br>${total}<br>Total</div>
-        <div class="card"><i class="fa fa-box"></i><br>${borrowed}<br>Borrowed</div>
-        <div class="card"><i class="fa fa-check"></i><br>${available}<br>Available</div>
-        <h3>Information</h3>
-        <div id="comments"></div>
-    `;
+        <h1>Dashboard</h1>
 
-    loadComments();
+        <div class="card">Total: ${total}</div>
+        <div class="card">Borrowed: ${borrowed}</div>
+        <div class="card">Available: ${available}</div>
+    `;
 }
 
-async function loadMonitor(){
-    let jigs = await fetch(API+"/jigs").then(r=>r.json());
+/* ================= JIG LIST ================= */
+async function jigList(){
+    let res = await fetch(API + "/jigs");
+    let data = await res.json();
 
-    let html = "<h2>Realtime Monitor</h2>";
+    let html = "<h2>JIG LIST</h2>";
 
-    jigs.forEach(j=>{
-        html += `<div>${j.jig_code} - ${j.status}</div>`;
+    data.forEach(j => {
+        html += `
+        <div class="card">
+            <b>${j.jig_code}</b><br>
+            ${j.name}<br>
+            ${j.status}
+        </div>`;
     });
 
     document.getElementById("main").innerHTML = html;
 }
 
-setInterval(()=>{
-    if(currentUser) loadMonitor();
-},5000);
+/* ================= BORROW (simple version) ================= */
+async function borrow(){
+    let res = await fetch(API + "/jigs");
+    let data = await res.json();
 
-function loadAdmin(){
-    document.getElementById("main").innerHTML = `
-        <h2>Admin Panel</h2>
-        <input id="newjig" placeholder="JIG code">
-        <button onclick="addJig()">Add</button>
-    `;
+    let html = "<h2>Borrow JIG</h2>";
+
+    data.forEach(j => {
+        html += `
+        <div class="card">
+            <input type="checkbox" value="${j.id}">
+            ${j.jig_code} - ${j.name}
+        </div>`;
+    });
+
+    html += `<br><button onclick="confirmBorrow()">CONFIRM</button>`;
+
+    document.getElementById("main").innerHTML = html;
 }
 
-async function addJig(){
-    let code = document.getElementById("newjig").value;
-    await fetch(API+"/add_jig",{method:"POST",body:JSON.stringify({code})});
-    alert("Added");
+async function confirmBorrow(){
+    let checked = [...document.querySelectorAll("input[type=checkbox]:checked")]
+        .map(e => parseInt(e.value));
+
+    let res = await fetch(API + "/borrow", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            user: "admin",
+            jig_ids: checked
+        })
+    });
+
+    let data = await res.json();
+    alert("SESSION ID: " + data.session_id);
+    home();
 }
 
-function loadComment(){
+/* ================= COMMENT ================= */
+async function comment(){
     document.getElementById("main").innerHTML = `
         <h2>Comment</h2>
-        <input id="cmt">
+        <input id="cmt" placeholder="write comment">
         <button onclick="sendComment()">Send</button>
-        <div id="comments"></div>
     `;
-    loadComments();
 }
 
 async function sendComment(){
     let text = document.getElementById("cmt").value;
-    await fetch(API+"/comment",{method:"POST",body:JSON.stringify({text})});
-    loadComments();
+
+    await fetch(API + "/comment", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({text})
+    });
+
+    alert("sent");
 }
 
-async function loadComments(){
-    let data = await fetch(API+"/comments").then(r=>r.json());
-    let html="";
-    data.forEach(c=> html+=`<div>${c.text}</div>`);
-    let el = document.getElementById("comments");
-    if(el) el.innerHTML = html;
+/* ================= ADMIN ================= */
+function admin(){
+    document.getElementById("main").innerHTML = `
+        <h2>Admin</h2>
+
+        <h3>Create User</h3>
+        <input id="u" placeholder="username">
+        <input id="p" placeholder="password">
+        <select id="r">
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+        </select>
+        <button onclick="createUser()">Create</button>
+    `;
 }
 
-loadLogin();
+async function createUser(){
+    await fetch(API + "/create_user", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            username: document.getElementById("u").value,
+            password: document.getElementById("p").value,
+            role: document.getElementById("r").value
+        })
+    });
+
+    alert("user created");
+}
+
+home();
 </script>
 
 </body>
