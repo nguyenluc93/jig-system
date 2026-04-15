@@ -1,81 +1,123 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-<meta charset="utf-8">
-<title>JIG SYSTEM</title>
+<meta charset="UTF-8">
+<title>JIG管理システム</title>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 
 <style>
 body {
     margin: 0;
-    font-family: Arial;
+    font-family: "Segoe UI", sans-serif;
     display: flex;
+    background: #f4f6fb;
 }
 
+/* ===== SIDEBAR ===== */
 .sidebar {
-    width: 220px;
-    background: #1e293b;
+    width: 240px;
+    background: linear-gradient(180deg, #1e293b, #0f172a);
     color: white;
     height: 100vh;
-    padding: 10px;
+    padding: 15px;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.2);
 }
 
 .sidebar h2 {
     text-align: center;
+    margin-bottom: 20px;
 }
 
 .menu button {
     width: 100%;
-    padding: 10px;
-    margin: 5px 0;
-    background: #334155;
-    color: white;
+    padding: 12px;
+    margin: 6px 0;
+    background: rgba(255,255,255,0.08);
     border: none;
+    color: white;
+    text-align: left;
+    border-radius: 8px;
     cursor: pointer;
+    transition: 0.3s;
 }
 
 .menu button:hover {
-    background: #475569;
+    background: #38bdf8;
+    transform: translateX(5px);
 }
 
+/* ===== MAIN ===== */
 .main {
     flex: 1;
     padding: 20px;
-    background: #f1f5f9;
 }
 
+/* ===== CARD ===== */
 .card {
-    display: inline-block;
     background: white;
     padding: 15px;
+    border-radius: 12px;
+    display: inline-block;
     margin: 10px;
-    border-radius: 10px;
-    width: 150px;
+    min-width: 160px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+/* ===== INPUT ===== */
+input, select {
+    padding: 10px;
+    margin: 5px 0;
+    width: 250px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+button.action {
+    background: #38bdf8;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+button.action:hover {
+    background: #0ea5e9;
 }
 </style>
 </head>
 
 <body>
 
+<!-- SIDEBAR -->
 <div class="sidebar">
-    <h2>JIG</h2>
+    <h2>🔧 JIGシステム</h2>
 
     <div class="menu">
-        <button onclick="home()">Home</button>
-        <button onclick="borrow()">Borrow</button>
-        <button onclick="jigList()">JIG List</button>
-        <button onclick="comment()">Comment</button>
-        <button onclick="admin()">Admin</button>
+        <button onclick="home()">🏠 ダッシュボード</button>
+        <button onclick="borrow()">📦 借りる</button>
+        <button onclick="jigList()">📋 JIG一覧</button>
+        <button onclick="comment()">💬 コメント</button>
+        <button onclick="admin()">⚙ 管理</button>
     </div>
 </div>
 
+<!-- MAIN -->
 <div class="main" id="main">
-    Loading...
+    ローディング...
 </div>
 
 <script>
 const API = "https://jig-system.onrender.com";
 
-/* ================= HOME ================= */
+/* ===== DASHBOARD ===== */
 async function home(){
     let res = await fetch(API + "/jigs");
     let jigs = await res.json();
@@ -85,39 +127,39 @@ async function home(){
     let available = total - borrowed;
 
     document.getElementById("main").innerHTML = `
-        <h1>Dashboard</h1>
+        <h1>📊 ダッシュボード</h1>
 
-        <div class="card">Total: ${total}</div>
-        <div class="card">Borrowed: ${borrowed}</div>
-        <div class="card">Available: ${available}</div>
+        <div class="card">📦 総数<br><b>${total}</b></div>
+        <div class="card">🔴 使用中<br><b>${borrowed}</b></div>
+        <div class="card">🟢 空き<br><b>${available}</b></div>
     `;
 }
 
-/* ================= JIG LIST ================= */
+/* ===== JIG LIST ===== */
 async function jigList(){
     let res = await fetch(API + "/jigs");
     let data = await res.json();
 
-    let html = "<h2>JIG LIST</h2>";
+    let html = "<h2>📋 JIG一覧</h2>";
 
     data.forEach(j => {
         html += `
         <div class="card">
             <b>${j.jig_code}</b><br>
             ${j.name}<br>
-            ${j.status}
+            状態: ${j.status}
         </div>`;
     });
 
     document.getElementById("main").innerHTML = html;
 }
 
-/* ================= BORROW (simple version) ================= */
+/* ===== BORROW ===== */
 async function borrow(){
     let res = await fetch(API + "/jigs");
     let data = await res.json();
 
-    let html = "<h2>Borrow JIG</h2>";
+    let html = "<h2>📦 JIGを借りる</h2>";
 
     data.forEach(j => {
         html += `
@@ -127,7 +169,7 @@ async function borrow(){
         </div>`;
     });
 
-    html += `<br><button onclick="confirmBorrow()">CONFIRM</button>`;
+    html += `<br><button class="action" onclick="confirmBorrow()">借りる確定</button>`;
 
     document.getElementById("main").innerHTML = html;
 }
@@ -146,16 +188,18 @@ async function confirmBorrow(){
     });
 
     let data = await res.json();
-    alert("SESSION ID: " + data.session_id);
+    alert("セッションID: " + data.session_id);
     home();
 }
 
-/* ================= COMMENT ================= */
-async function comment(){
+/* ===== COMMENT ===== */
+function comment(){
     document.getElementById("main").innerHTML = `
-        <h2>Comment</h2>
-        <input id="cmt" placeholder="write comment">
-        <button onclick="sendComment()">Send</button>
+        <h2>💬 コメント</h2>
+
+        <input id="cmt" placeholder="コメントを入力">
+        <br>
+        <button class="action" onclick="sendComment()">送信</button>
     `;
 }
 
@@ -168,22 +212,25 @@ async function sendComment(){
         body: JSON.stringify({text})
     });
 
-    alert("sent");
+    alert("送信完了");
 }
 
-/* ================= ADMIN ================= */
+/* ===== ADMIN ===== */
 function admin(){
     document.getElementById("main").innerHTML = `
-        <h2>Admin</h2>
+        <h2>⚙ 管理画面</h2>
 
-        <h3>Create User</h3>
-        <input id="u" placeholder="username">
-        <input id="p" placeholder="password">
+        <h3>ユーザー作成</h3>
+
+        <input id="u" placeholder="ユーザー名"><br>
+        <input id="p" placeholder="パスワード" type="password"><br>
+
         <select id="r">
-            <option value="user">user</option>
-            <option value="admin">admin</option>
-        </select>
-        <button onclick="createUser()">Create</button>
+            <option value="user">ユーザー</option>
+            <option value="admin">管理者</option>
+        </select><br>
+
+        <button class="action" onclick="createUser()">作成</button>
     `;
 }
 
@@ -198,7 +245,7 @@ async function createUser(){
         })
     });
 
-    alert("user created");
+    alert("ユーザー作成完了");
 }
 
 home();
