@@ -4,248 +4,119 @@
 <meta charset="UTF-8">
 <title>JIG管理システム</title>
 
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-
 <style>
-body {
-    margin: 0;
-    font-family: "Segoe UI", sans-serif;
-    display: flex;
-    background: #f4f6fb;
-}
-
-/* ===== SIDEBAR ===== */
-.sidebar {
-    width: 240px;
-    background: linear-gradient(180deg, #1e293b, #0f172a);
-    color: white;
-    height: 100vh;
-    padding: 15px;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.2);
-}
-
-.sidebar h2 {
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-.menu button {
-    width: 100%;
-    padding: 12px;
-    margin: 6px 0;
-    background: rgba(255,255,255,0.08);
-    border: none;
-    color: white;
-    text-align: left;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: 0.3s;
-}
-
-.menu button:hover {
-    background: #38bdf8;
-    transform: translateX(5px);
-}
-
-/* ===== MAIN ===== */
-.main {
-    flex: 1;
-    padding: 20px;
-}
-
-/* ===== CARD ===== */
-.card {
-    background: white;
-    padding: 15px;
-    border-radius: 12px;
-    display: inline-block;
-    margin: 10px;
-    min-width: 160px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-    transition: 0.3s;
-}
-
-.card:hover {
-    transform: translateY(-5px);
-}
-
-/* ===== INPUT ===== */
-input, select {
-    padding: 10px;
-    margin: 5px 0;
-    width: 250px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-}
-
-button.action {
-    background: #38bdf8;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 8px;
-    cursor: pointer;
-    margin-top: 10px;
-}
-
-button.action:hover {
-    background: #0ea5e9;
-}
+body{margin:0;font-family:Arial;display:flex;background:#f5f7fb}
+.sidebar{width:240px;background:#0f172a;color:white;height:100vh;padding:15px}
+.menu button{width:100%;padding:10px;margin:5px 0;background:#1e293b;color:white;border:0;border-radius:8px;cursor:pointer}
+.menu button:hover{background:#38bdf8}
+.main{flex:1;padding:20px}
+.card{background:white;padding:12px;margin:8px;border-radius:10px;display:inline-block;min-width:160px}
+input,select{padding:8px;margin:5px;width:220px}
+.btn{padding:8px 12px;background:#38bdf8;border:0;color:white;border-radius:6px;cursor:pointer}
 </style>
 </head>
 
 <body>
 
-<!-- SIDEBAR -->
 <div class="sidebar">
-    <h2>🔧 JIGシステム</h2>
-
-    <div class="menu">
-        <button onclick="home()">🏠 ダッシュボード</button>
-        <button onclick="borrow()">📦 借りる</button>
-        <button onclick="jigList()">📋 JIG一覧</button>
-        <button onclick="comment()">💬 コメント</button>
-        <button onclick="admin()">⚙ 管理</button>
-    </div>
+<h2>🔧 JIGシステム</h2>
+<div class="menu">
+<button onclick="home()">ダッシュボード</button>
+<button onclick="borrow()">借りる</button>
+<button onclick="jigs()">JIG一覧</button>
+<button onclick="comment()">コメント</button>
+<button onclick="admin()">管理</button>
+</div>
 </div>
 
-<!-- MAIN -->
-<div class="main" id="main">
-    ローディング...
-</div>
+<div class="main" id="main"></div>
 
 <script>
-const API = "https://jig-system.onrender.com";
+const API="https://jig-system.onrender.com";
 
-/* ===== DASHBOARD ===== */
+/* DASHBOARD */
 async function home(){
-    let res = await fetch(API + "/jigs");
-    let jigs = await res.json();
+let j=await (await fetch(API+"/jigs")).json();
+let t=j.length,b=j.filter(x=>x.status=="BORROWED").length;
 
-    let total = jigs.length;
-    let borrowed = jigs.filter(j => j.status === "BORROWED").length;
-    let available = total - borrowed;
-
-    document.getElementById("main").innerHTML = `
-        <h1>📊 ダッシュボード</h1>
-
-        <div class="card">📦 総数<br><b>${total}</b></div>
-        <div class="card">🔴 使用中<br><b>${borrowed}</b></div>
-        <div class="card">🟢 空き<br><b>${available}</b></div>
-    `;
+main.innerHTML=`
+<h2>📊 ダッシュボード</h2>
+<div class="card">総数<br>${t}</div>
+<div class="card">使用中<br>${b}</div>
+<div class="card">空き<br>${t-b}</div>`;
 }
 
-/* ===== JIG LIST ===== */
-async function jigList(){
-    let res = await fetch(API + "/jigs");
-    let data = await res.json();
-
-    let html = "<h2>📋 JIG一覧</h2>";
-
-    data.forEach(j => {
-        html += `
-        <div class="card">
-            <b>${j.jig_code}</b><br>
-            ${j.name}<br>
-            状態: ${j.status}
-        </div>`;
-    });
-
-    document.getElementById("main").innerHTML = html;
+/* JIG */
+async function jigs(){
+let d=await (await fetch(API+"/jigs")).json();
+main.innerHTML="<h2>JIG一覧</h2>"+d.map(x=>`
+<div class="card">
+<b>${x.jig_code}</b><br>${x.name}<br>${x.status}
+</div>`).join("");
 }
 
-/* ===== BORROW ===== */
+/* BORROW */
 async function borrow(){
-    let res = await fetch(API + "/jigs");
-    let data = await res.json();
-
-    let html = "<h2>📦 JIGを借りる</h2>";
-
-    data.forEach(j => {
-        html += `
-        <div class="card">
-            <input type="checkbox" value="${j.id}">
-            ${j.jig_code} - ${j.name}
-        </div>`;
-    });
-
-    html += `<br><button class="action" onclick="confirmBorrow()">借りる確定</button>`;
-
-    document.getElementById("main").innerHTML = html;
+let d=await (await fetch(API+"/jigs")).json();
+main.innerHTML="<h2>借りる</h2>"+d.map(x=>`
+<div class="card">
+<input type="checkbox" value="${x.id}">${x.jig_code}
+</div>`).join("")+
+`<br><button class="btn" onclick="doBorrow()">確定</button>`;
 }
 
-async function confirmBorrow(){
-    let checked = [...document.querySelectorAll("input[type=checkbox]:checked")]
-        .map(e => parseInt(e.value));
-
-    let res = await fetch(API + "/borrow", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-            user: "admin",
-            jig_ids: checked
-        })
-    });
-
-    let data = await res.json();
-    alert("セッションID: " + data.session_id);
-    home();
+async function doBorrow(){
+let ids=[...document.querySelectorAll("input:checked")].map(x=>+x.value);
+let r=await fetch(API+"/borrow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user:"admin",jig_ids:ids})});
+alert("session:"+ (await r.json()).session_id);
+home();
 }
 
-/* ===== COMMENT ===== */
+/* COMMENT */
 function comment(){
-    document.getElementById("main").innerHTML = `
-        <h2>💬 コメント</h2>
-
-        <input id="cmt" placeholder="コメントを入力">
-        <br>
-        <button class="action" onclick="sendComment()">送信</button>
-    `;
+main.innerHTML=`
+<h2>コメント</h2>
+<input id="c"><button class="btn" onclick="sendC()">送信</button>`;
 }
 
-async function sendComment(){
-    let text = document.getElementById("cmt").value;
-
-    await fetch(API + "/comment", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({text})
-    });
-
-    alert("送信完了");
+async function sendC(){
+await fetch(API+"/comment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:c.value})});
+home();
 }
 
-/* ===== ADMIN ===== */
+/* ADMIN */
 function admin(){
-    document.getElementById("main").innerHTML = `
-        <h2>⚙ 管理画面</h2>
+main.innerHTML=`
+<h2>管理</h2>
 
-        <h3>ユーザー作成</h3>
+<h3>ユーザー作成</h3>
+<input id="u"><input id="p">
+<select id="r"><option>user</option><option>admin</option></select>
+<button class="btn" onclick="cu()">作成</button>
 
-        <input id="u" placeholder="ユーザー名"><br>
-        <input id="p" placeholder="パスワード" type="password"><br>
+<h3>JIG追加</h3>
+<input id="jc"><input id="jn">
+<button class="btn" onclick="cj()">追加</button>
 
-        <select id="r">
-            <option value="user">ユーザー</option>
-            <option value="admin">管理者</option>
-        </select><br>
-
-        <button class="action" onclick="createUser()">作成</button>
-    `;
+<h3>コメント削除 (ID)</h3>
+<input id="cid">
+<button class="btn" onclick="dc()">削除</button>
+`;
 }
 
-async function createUser(){
-    await fetch(API + "/create_user", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-            username: document.getElementById("u").value,
-            password: document.getElementById("p").value,
-            role: document.getElementById("r").value
-        })
-    });
+async function cu(){
+await fetch(API+"/create_user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u.value,password:p.value,role:r.value})});
+alert("ok");
+}
 
-    alert("ユーザー作成完了");
+async function cj(){
+await fetch(API+"/add_jig",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jig_code:jc.value,name:jn.value,status:"AVAILABLE"})});
+alert("ok");
+}
+
+async function dc(){
+await fetch(API+"/comment/"+cid.value,{method:"DELETE"});
+alert("deleted");
 }
 
 home();
