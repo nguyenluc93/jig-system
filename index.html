@@ -2,125 +2,237 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>JIG管理システム</title>
-
+<title>JIGシステム</title>
 <style>
-body{margin:0;font-family:Arial;display:flex;background:#f5f7fb}
-.sidebar{width:240px;background:#0f172a;color:white;height:100vh;padding:15px}
-.menu button{width:100%;padding:10px;margin:5px 0;background:#1e293b;color:white;border:0;border-radius:8px;cursor:pointer}
-.menu button:hover{background:#38bdf8}
-.main{flex:1;padding:20px}
-.card{background:white;padding:12px;margin:8px;border-radius:10px;display:inline-block;min-width:160px}
-input,select{padding:8px;margin:5px;width:220px}
-.btn{padding:8px 12px;background:#38bdf8;border:0;color:white;border-radius:6px;cursor:pointer}
+body{
+    margin:0;
+    font-family:Arial;
+    display:flex;
+    background:#f4f6fb;
+}
+.sidebar{
+    width:250px;
+    background:#1e293b;
+    color:white;
+    height:100vh;
+    padding:15px;
+}
+.menu-title{
+    margin-top:20px;
+    color:#38bdf8;
+    font-weight:bold;
+}
+.menu button{
+    width:100%;
+    padding:10px;
+    margin:4px 0;
+    border:0;
+    border-radius:6px;
+    background:#334155;
+    color:white;
+    cursor:pointer;
+    text-align:left;
+}
+.menu button:hover{
+    background:#38bdf8;
+}
+.main{
+    flex:1;
+    padding:20px;
+}
+.card{
+    background:white;
+    padding:15px;
+    margin:10px;
+    border-radius:10px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+    display:inline-block;
+    min-width:160px;
+}
+.btn{
+    padding:8px 12px;
+    background:#38bdf8;
+    border:0;
+    color:white;
+    border-radius:6px;
+    cursor:pointer;
+}
+input{
+    padding:8px;
+    margin:5px;
+}
 </style>
 </head>
-
 <body>
 
 <div class="sidebar">
-<h2>🔧 JIGシステム</h2>
-<div class="menu">
-<button onclick="home()">ダッシュボード</button>
-<button onclick="borrow()">借りる</button>
-<button onclick="jigs()">JIG一覧</button>
-<button onclick="comment()">コメント</button>
-<button onclick="admin()">管理</button>
-</div>
+    <h2>JIGシステム</h2>
+
+    <div class="menu-title">Dashboard</div>
+    <button onclick="home()">ホーム</button>
+    <button onclick="borrow()">貸出</button>
+    <button onclick="ret()">返却</button>
+
+    <div class="menu-title">Monitor</div>
+    <button onclick="jigs()">JIG一覧</button>
+    <button onclick="logs()">ログ</button>
+    <button onclick="comments()">コメント</button>
+
+    <div class="menu-title">Admin</div>
+    <button onclick="admin()">管理</button>
 </div>
 
 <div class="main" id="main"></div>
 
 <script>
-const API="https://jig-system.onrender.com";
+const API = "https://jig-system.onrender.com";
 
-/* DASHBOARD */
+function render(html){
+    document.getElementById("main").innerHTML = html;
+}
+
 async function home(){
-let j=await (await fetch(API+"/jigs")).json();
-let t=j.length,b=j.filter(x=>x.status=="BORROWED").length;
+    let data = await (await fetch(API + "/jigs")).json();
 
-main.innerHTML=`
-<h2>📊 ダッシュボード</h2>
-<div class="card">総数<br>${t}</div>
-<div class="card">使用中<br>${b}</div>
-<div class="card">空き<br>${t-b}</div>`;
+    let total = data.length;
+    let borrowed = data.filter(x=>x.status==="BORROWED").length;
+    let available = total - borrowed;
+
+    render(`
+        <h2>ホーム</h2>
+        <div class="card">総数<br><h2>${total}</h2></div>
+        <div class="card">使用中<br><h2>${borrowed}</h2></div>
+        <div class="card">空き<br><h2>${available}</h2></div>
+    `);
 }
 
-/* JIG */
+function borrow(){
+    render(`
+        <h2>貸出</h2>
+        <input id="boxcode" placeholder="BOX QR CODE">
+        <button class="btn" onclick="scanBox()">追加</button>
+        <br><br>
+        <button class="btn" onclick="confirmBorrow()">貸出確定</button>
+    `);
+}
+
+async function scanBox(){
+    let code = document.getElementById("boxcode").value;
+
+    await fetch(API + "/scan_box", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({jig_code:code})
+    });
+
+    alert("追加完了");
+}
+
+async function confirmBorrow(){
+    let res = await fetch(API + "/confirm_borrow", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({user:"admin"})
+    });
+
+    let data = await res.json();
+
+    render(`
+        <h2>貸出完了</h2>
+        <div class="card">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${data.session_code}">
+            <br>
+            ${data.session_code}
+        </div>
+    `);
+}
+
+function ret(){
+    render(`
+        <h2>返却</h2>
+        <input id="sessioncode" placeholder="SESSION CODE">
+        <button class="btn" onclick="returnSession()">返却</button>
+    `);
+}
+
+async function returnSession(){
+    let code = document.getElementById("sessioncode").value;
+
+    await fetch(API + "/return_session", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            session_code:code,
+            user:"admin"
+        })
+    });
+
+    alert("返却完了");
+    home();
+}
+
 async function jigs(){
-let d=await (await fetch(API+"/jigs")).json();
-main.innerHTML="<h2>JIG一覧</h2>"+d.map(x=>`
-<div class="card">
-<b>${x.jig_code}</b><br>${x.name}<br>${x.status}
-</div>`).join("");
+    let data = await (await fetch(API + "/jigs")).json();
+
+    render(`
+        <h2>JIG一覧</h2>
+        ${data.map(j=>`
+            <div class="card">
+                ${j.jig_code}<br>
+                ${j.name}<br>
+                ${j.status}
+            </div>
+        `).join("")}
+    `);
 }
 
-/* BORROW */
-async function borrow(){
-let d=await (await fetch(API+"/jigs")).json();
-main.innerHTML="<h2>借りる</h2>"+d.map(x=>`
-<div class="card">
-<input type="checkbox" value="${x.id}">${x.jig_code}
-</div>`).join("")+
-`<br><button class="btn" onclick="doBorrow()">確定</button>`;
+async function logs(){
+    let data = await (await fetch(API + "/logs")).json();
+
+    render(`
+        <h2>ログ</h2>
+        ${data.map(l=>`
+            <div class="card">
+                ${l.time}<br>
+                ${l.user}<br>
+                ${l.action}<br>
+                ${l.detail}
+            </div>
+        `).join("")}
+    `);
 }
 
-async function doBorrow(){
-let ids=[...document.querySelectorAll("input:checked")].map(x=>+x.value);
-let r=await fetch(API+"/borrow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user:"admin",jig_ids:ids})});
-alert("session:"+ (await r.json()).session_id);
-home();
+function comments(){
+    render(`<h2>コメント</h2>準備中`);
 }
 
-/* COMMENT */
-function comment(){
-main.innerHTML=`
-<h2>コメント</h2>
-<input id="c"><button class="btn" onclick="sendC()">送信</button>`;
-}
-
-async function sendC(){
-await fetch(API+"/comment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:c.value})});
-home();
-}
-
-/* ADMIN */
 function admin(){
-main.innerHTML=`
-<h2>管理</h2>
-
-<h3>ユーザー作成</h3>
-<input id="u"><input id="p">
-<select id="r"><option>user</option><option>admin</option></select>
-<button class="btn" onclick="cu()">作成</button>
-
-<h3>JIG追加</h3>
-<input id="jc"><input id="jn">
-<button class="btn" onclick="cj()">追加</button>
-
-<h3>コメント削除 (ID)</h3>
-<input id="cid">
-<button class="btn" onclick="dc()">削除</button>
-`;
+    render(`
+        <h2>管理</h2>
+        <input id="code" placeholder="JIGコード">
+        <input id="name" placeholder="JIG名">
+        <button class="btn" onclick="addJig()">追加</button>
+    `);
 }
 
-async function cu(){
-await fetch(API+"/create_user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u.value,password:p.value,role:r.value})});
-alert("ok");
-}
+async function addJig(){
+    let code = document.getElementById("code").value;
+    let name = document.getElementById("name").value;
 
-async function cj(){
-await fetch(API+"/add_jig",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jig_code:jc.value,name:jn.value,status:"AVAILABLE"})});
-alert("ok");
-}
+    await fetch(API + "/add_jig", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            jig_code:code,
+            name:name
+        })
+    });
 
-async function dc(){
-await fetch(API+"/comment/"+cid.value,{method:"DELETE"});
-alert("deleted");
+    alert("追加完了");
+    jigs();
 }
 
 home();
 </script>
-
 </body>
 </html>
